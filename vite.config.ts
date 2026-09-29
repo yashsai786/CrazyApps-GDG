@@ -118,10 +118,12 @@ IMPORTANT RULES:
           if (!groqRes.ok) {
             const errData = await groqRes.text();
             console.error('[AbsentAPI] Groq error status:', groqRes.status, errData);
-            res.statusCode = groqRes.status === 429 ? 429 : 502;
+            const isRateLimit = groqRes.status === 429 || errData.toLowerCase().includes('rate_limit') || errData.toLowerCase().includes('quota');
+            res.statusCode = isRateLimit ? 429 : 502;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ 
-              error: 'The AI could not inspect this image right now. Please try again.' 
+              error: isRateLimit ? 'Sorry, AI rate limit exceeded. Come back tomorrow.' : 'The AI could not inspect this image right now. Please try again.',
+              isRateLimit: isRateLimit
             }));
             return;
           }

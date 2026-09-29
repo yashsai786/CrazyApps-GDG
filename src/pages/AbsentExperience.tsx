@@ -64,6 +64,7 @@ export const AbsentExperience: React.FC<AbsentExperienceProps> = ({ onBack }) =>
   const [scanningMessageIdx, setScanningMessageIdx] = useState<number>(0);
   const [auditResult, setAuditResult] = useState<AbsentAuditResult | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [showRateLimitModal, setShowRateLimitModal] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -232,7 +233,12 @@ export const AbsentExperience: React.FC<AbsentExperienceProps> = ({ onBack }) =>
       });
 
       if (!response.ok) {
-        throw new Error('Analysis request failed with status ' + response.status);
+        const errJson = await response.json().catch(() => null);
+        if (response.status === 429 || errJson?.isRateLimit) {
+          setShowRateLimitModal(true);
+          return;
+        }
+        throw new Error(errJson?.error || 'Analysis request failed with status ' + response.status);
       }
 
       const data: AbsentAuditResult = await response.json();
@@ -708,6 +714,29 @@ export const AbsentExperience: React.FC<AbsentExperienceProps> = ({ onBack }) =>
       <footer className="relative z-10 py-4 text-center text-[11px] font-['Inter'] text-zinc-600">
         ABSENT AI Gap Auditor • Local Camera Processing • Privacy-first zero permanent storage
       </footer>
+
+      {/* AI Rate Limit Exceeded Popup Modal */}
+      {showRateLimitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="relative max-w-sm w-full bg-zinc-950 border border-amber-500/40 rounded-2xl p-6 shadow-[0_0_50px_rgba(245,158,11,0.2)] text-center flex flex-col items-center">
+            <div className="w-12 h-12 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mb-4 text-amber-400">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="font-['Cinzel'] text-lg font-light text-zinc-100 tracking-wider mb-2">
+              Limit Exceeded
+            </h3>
+            <p className="font-['Inter'] text-sm text-zinc-300 leading-relaxed mb-6">
+              Sorry, AI rate limit exceeded. Come back tomorrow!
+            </p>
+            <button
+              onClick={() => setShowRateLimitModal(false)}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-zinc-950 font-['Inter'] text-xs font-semibold tracking-wide uppercase transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] active:scale-[0.98]"
+            >
+              Understood
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
